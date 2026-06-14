@@ -1,0 +1,45 @@
+# LWRT configuration. Edited live from the web UI; reboot to apply.
+
+[system]
+hostname = lwrt
+
+[lan]
+ifname = br-lan
+ipaddr = 192.168.1.1
+netmask = 255.255.255.0
+
+[dhcp]
+enabled = 1
+start = 192.168.1.100
+limit = 100
+leasetime = 43200
+
+[wan]
+ifname = eth0.2
+proto = dhcp
+
+[wifi]
+ssid = LWRT
+encryption = psk2
+key = changeme0
+channel = auto
+
+[firewall]
+masq = 1
+
+# WireGuard VPN server. Generate keys, then set enabled = 1.
+[wireguard]
+enabled = 0
+listen_port = 51820
+address = 10.7.0.1/24
+private_key =
+
+# One section per VPN peer (any name beginning with "peer").
+# [peer1]
+# public_key  = <base64 peer public key>
+# allowed_ips = 10.7.0.2/32
+# endpoint    = 203.0.113.5:51820
+# keepalive   = 25
+
+[ipkg]
+repo = http://downloads.lwrt.local/packages

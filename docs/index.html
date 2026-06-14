@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LWRT — A Lightweight Wireless Router Userspace in Rust</title>
+  <meta name="description" content="LWRT replaces OpenWrt's entire userspace — procd, netifd, dnsmasq, fw4, opkg, uhttpd — with one compact static Rust binary running inside an execute-in-place (XIP) Linux kernel, small enough for a 4 MB flash router.">
+  <meta name="keywords" content="LWRT, OpenWrt, router, firmware, Rust, musl, MIPS, XIP, WireGuard, nftables, netlink, TP-Link, Archer C54, MT7628, embedded Linux">
+  <meta property="og:title" content="LWRT — Lightweight Wireless Router">
+  <meta property="og:description" content="OpenWrt's userspace as one compact static Rust binary on an XIP Linux kernel.">
+  <meta property="og:type" content="website">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📶</text></svg>">
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">📶</span>
+        <span class="logo-text">LWRT</span>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle navigation">☰</button>
+    </div>
+
+    <div class="sidebar-search">
+      <input type="text" id="searchInput" placeholder="Search docs..." aria-label="Search documentation">
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Getting Started</div>
+        <a href="#overview" class="nav-link active" data-section="overview">Project Overview</a>
+        <a href="#why" class="nav-link" data-section="why">Why LWRT</a>
+        <a href="#quickstart" class="nav-link" data-section="quickstart">Quick Start</a>
+        <a href="#architecture" class="nav-link" data-section="architecture">Architecture</a>
+        <a href="#multicall" class="nav-link" data-section="multicall">Multicall Binary</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Applets</div>
+        <a href="#applet-init" class="nav-link" data-section="applet-init">init — PID 1</a>
+        <a href="#applet-net" class="nav-link" data-section="applet-net">net / ifup</a>
+        <a href="#applet-dhcp" class="nav-link" data-section="applet-dhcp">dhcp</a>
+        <a href="#applet-dns" class="nav-link" data-section="applet-dns">dns</a>
+        <a href="#applet-fw" class="nav-link" data-section="applet-fw">fw — nftables</a>
+        <a href="#applet-wg" class="nav-link" data-section="applet-wg">wg — WireGuard</a>
+        <a href="#applet-httpd" class="nav-link" data-section="applet-httpd">httpd</a>
+        <a href="#applet-ipkg" class="nav-link" data-section="applet-ipkg">ipkg</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Internals</div>
+        <a href="#netlink" class="nav-link" data-section="netlink">Netlink Builder</a>
+        <a href="#config" class="nav-link" data-section="config">Configuration</a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Reference</div>
+        <a href="#parity" class="nav-link" data-section="parity">OpenWrt → LWRT Map</a>
+        <a href="#building" class="nav-link" data-section="building">Building</a>
+        <a href="#porting" class="nav-link" data-section="porting">Porting</a>
+        <a href="#debugging" class="nav-link" data-section="debugging">Debugging</a>
+        <a href="#glossary" class="nav-link" data-section="glossary">Glossary</a>
+        <a href="#faq" class="nav-link" data-section="faq">FAQ</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Header -->
+  <header class="mobile-header" id="mobileHeader">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">☰</button>
+    <span class="mobile-title">LWRT Docs</span>
+  </header>
+
+  <!-- Main Content -->
+  <main id="content" class="content">
+    <!-- Hero Section -->
+    <section id="hero" class="hero">
+      <div class="hero-content">
+        <div class="hero-badge">Rust · mipsel-musl · GPL-2.0-or-later</div>
+        <h1>LWRT — Lightweight Wireless Router</h1>
+        <p class="hero-subtitle">OpenWrt's userspace, reimagined as <strong>one compact static Rust binary</strong> riding inside an execute-in-place (XIP) Linux kernel — small enough for a 4&nbsp;MB&nbsp;/&nbsp;4&nbsp;MB router. The kernel keeps the hard parts (nftables, NAT, the bridge/DSA datapath, WireGuard, mt76); LWRT replaces procd, netifd, ubus, uci, dnsmasq, fw4, opkg and uhttpd with a single multicall executable.</p>
+        <div class="hero-stats">
+          <div class="stat">
+            <span class="stat-value">~0.6 MB</span>
+            <span class="stat-label">Single Binary</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">8</span>
+            <span class="stat-label">Applets</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">0</span>
+            <span class="stat-label">Userspace Crypto</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value">~2.3 MB</span>
+            <span class="stat-label">RAM Saved (XIP)</span>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <a href="#quickstart" class="btn btn-primary">Quick Start →</a>
+          <a href="https://github.com/Mr-DS-ML-85/lwrt" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Project Overview -->
+    <section id="overview" class="doc-section">
+      <h2>Project Overview</h2>
+      <p>LWRT is a complete router operating-system userspace for memory-constrained wireless routers such as the <strong>TP-Link Archer C54 v1</strong> (MediaTek MT7628, 4&nbsp;MB SPI flash). Instead of a sprawling stack of C daemons, shared libraries and an interpreter, the entire userspace is <strong>one statically-linked Rust binary</strong> built against musl.</p>
+      <p>A modern OpenWrt image cannot fit a 4&nbsp;MB flash. LWRT buys the room back two ways: the userspace collapses to a single small executable, and the kernel runs <strong>execute-in-place</strong> directly from flash — freeing the ~2.3&nbsp;MB of RAM stock Linux spends on a decompressed image. The XIP kernel lives in its <strong>own</strong> repository (<code>mips-xip-kernel</code>); LWRT points at it at build time and does not vendor it.</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📦</div>
+          <h4>One Binary</h4>
+          <p>PID 1, networking, DHCP, DNS, firewall, VPN, package manager and web UI — dispatched busybox-style on the applet name.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🦀</div>
+          <h4>Compact Rust</h4>
+          <p>No <code>libubus</code>, no Lua, no shell. Idiomatic, allocation-aware Rust on musl, <code>opt-level=z</code> + LTO + strip.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔌</div>
+          <h4>Kernel-First</h4>
+          <p>The crypto, conntrack and datapath stay in the mainline kernel. LWRT is the thin tool that configures them over netlink/ioctl.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h4>XIP-Friendly</h4>
+          <p>Built to boot as PID 1 under an execute-in-place MIPS kernel that runs <code>.text</code> straight from the flash window.</p>
+        </div>
+      </div>
+
+      <div class="callout callout-info">
+        <strong>Status: early but real.</strong>
+        The userspace cross-compiles and the XIP kernel boots it as PID 1 in QEMU. See <code>incomplete.md</code> and <code>bugs.md</code> in the repository for the honest list of gaps and hardening still in flight.
+      </div>
+    </section>
+
+    <!-- Section: Why -->
+    <section id="why" class="doc-section">
+      <h2>Why LWRT</h2>
+      <p>A typical SoHo router — e.g. the Archer C54: MT7628, 64&nbsp;MB RAM but only <strong>4&nbsp;MB SPI flash</strong> — cannot hold a modern OpenWrt image. Two ideas buy the room back.</p>
+
+      <h3>1. An execute-in-place kernel</h3>
+      <p>On MIPS, KSEG0/KSEG1 are <em>unmapped</em> segments, so the kernel's <code>.text</code>, <code>.rodata</code> and <code>.init.text</code> can run directly from the flash window with no page tables and no copy to RAM. That frees roughly <strong>2.3&nbsp;MB</strong> of RAM that stock Linux spends on a decompressed kernel image.</p>
+
+      <h3>2. One tiny userspace binary</h3>
+      <p>Instead of dozens of C daemons plus shared libraries plus an interpreter stack, LWRT ships a single statically-linked Rust binary with musl. No <code>libubus</code>, no Lua, no shell.</p>
+
+      <h3>The WireGuard lesson, applied everywhere</h3>
+      <p>WireGuard wins by keeping the hard work — the crypto, the transport, the routing — inside ~4k lines of kernel code, and shipping a tiny userspace tool that just pushes keys and peers in. LWRT generalises that discipline: every applet is a thin front end to an in-kernel feature. The firewall applet programs nftables over netlink; the VPN applet creates the <code>wireguard</code> link and pushes the device config; nobody re-implements a packet path in userspace.</p>
+
+      <div class="callout callout-success">
+        <strong>Design rule.</strong>
+        If the kernel already does it well, LWRT configures it rather than reinventing it. Userspace stays small, auditable, and fast to boot.
+      </div>
+    </section>
+
+    <!-- Section: Quick Start -->
+    <section id="quickstart" class="doc-section">
+      <h2>Quick Start</h2>
+      <p>Build the userspace binary, bake it into the XIP kernel image, and boot it in QEMU.</p>
+
+      <h3>Prerequisites</h3>
+      <ul class="styled-list">
+        <li>Rust nightly with <code>rust-src</code> (pinned by <code>rust-toolchain.toml</code>).</li>
+        <li>An OpenWrt musl cross toolchain for <code>mipsel_24kc</code> — it provides the musl gcc that drives the final link (the tier-3 target ships no self-contained CRT).</li>
+        <li>For the kernel image: <code>clang</code>, a <code>mipsel-linux-gnu-</code> binutils, <code>cpio</code>, <code>qemu-system-mipsel</code>.</li>
+      </ul>
+
+      <h3>Build the userspace binary</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="qs-build">Copy</button>
+        </div>
+        <pre><code id="qs-build">scripts/build.sh
+# -> target/mipsel-unknown-linux-musl/release/lwrt</code></pre>
+      </div>
+      <p><code>build.sh</code> auto-detects your OpenWrt <code>staging_dir</code>, wires the linker and <code>STAGING_DIR</code> through the environment (so <code>.cargo/config.toml</code> stays machine-neutral), regenerates <code>vendor/libunwind.a</code>, and produces the stripped <code>lwrt</code> binary. Override paths with <code>LWRT_OPENWRT</code>, <code>LWRT_TOOLCHAIN</code>, <code>LWRT_TARGET</code>.</p>
+
+      <h3>Bake and boot the XIP image</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="qs-image">Copy</button>
+        </div>
+        <pre><code id="qs-image"># point at your kernel tree; result is &lt;kernel&gt;/build/out/xip-bios.bin
+LWRT_KERNEL=/path/to/mips-xip-kernel scripts/mkimage.sh
+
+qemu-system-mipsel -M malta -cpu 24Kf -m 256 \
+  -bios xip-bios.bin -nographic</code></pre>
+      </div>
+      <div class="callout callout-success">
+        <strong>Expected output.</strong>
+        On a successful boot the console prints <code>LWRT init: PID 1 starting</code>.
+      </div>
+    </section>
+
+    <!-- Section: Architecture -->
+    <section id="architecture" class="doc-section">
+      <h2>Architecture</h2>
+      <p>LWRT sits at the top of a deliberately thin stack. The mainline kernel owns every performance- or security-critical path; the single Rust binary configures those paths and supervises the box.</p>
+
+      <div class="architecture-diagram">
+        <div class="arch-layer">
+          <div class="arch-label">Userspace</div>
+          <div class="arch-boxes">
+            <div class="arch-box highlight">lwrt (one static binary)</div>
+          </div>
+        </div>
+        <div class="arch-arrow">▲ ioctl · rtnetlink · genetlink · NETLINK_NETFILTER ▼</div>
+        <div class="arch-layer">
+          <div class="arch-label">Kernel</div>
+          <div class="arch-boxes">
+            <div class="arch-box">nf_tables / NAT</div>
+            <div class="arch-box">bridge / DSA</div>
+            <div class="arch-box">WireGuard</div>
+            <div class="arch-box">mac80211 / mt76</div>
+          </div>
+        </div>
+        <div class="arch-arrow">▲ execute-in-place from flash ▼</div>
+        <div class="arch-layer">
+          <div class="arch-label">Hardware</div>
+          <div class="arch-boxes">
+            <div class="arch-box">MT7628 SoC</div>
+            <div class="arch-box">SPI-NOR flash</div>
+            <div class="arch-box">RAM</div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Repository layout</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">text</span>
+          <button class="copy-btn" data-target="arch-layout">Copy</button>
+        </div>
+        <pre><code id="arch-layout">src/            the multicall userspace (one binary, one applet per module)
+rootfs/         default on-device files (etc/lwrt/config)
+scripts/
+  build.sh      portable cross-build of the mipsel-musl binary
+  mkrootfs.sh   stage the rootfs + emit a cpio.gz initramfs
+  mkimage.sh    bake LWRT into the XIP kernel -> bootable flash image
+.cargo/         tier-3 target + build-std settings (machine-neutral)
+vendor/         libunwind.a shim (regenerated by build.sh; git-ignored)
+docs/           this documentation site
+incomplete.md   known gaps / not-yet-implemented
+bugs.md         per-file audit (severity + line numbers)</code></pre>
+      </div>
+    </section>
+
+    <!-- Section: Multicall -->
+    <section id="multicall" class="doc-section">
+      <h2>The Multicall Binary</h2>
+      <p>Like busybox, LWRT decides which applet to run from how it was invoked. It prefers the basename of <code>argv[0]</code> (so symlinks like <code>/sbin/dhcp → lwrt</code> work), and falls back to the first argument when called as the bare <code>lwrt</code> binary.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">rust</span>
+          <button class="copy-btn" data-target="mc-dispatch">Copy</button>
+        </div>
+        <pre><code id="mc-dispatch">// applet selection: argv[0] basename, else argv[1]
+let arg0 = args.first()
+    .map(|s| s.rsplit('/').next().unwrap_or(s))
+    .unwrap_or("lwrt");
+
+let (applet, rest) = match arg0 {
+    "lwrt" | "" => match args.get(1) {
+        Some(a) =&gt; (a.as_str(), &amp;args[2..]),
+        None =&gt; ("help", &amp;[][..]),
+    },
+    other =&gt; (other, &amp;args[1..]),
+};
+
+let code = match applet {
+    "init"  =&gt; init::run(rest),
+    "ifup"  =&gt; applet_ifup(rest),
+    "dhcp"  =&gt; dhcp::run(rest),
+    "dns"   =&gt; dns::run(rest),
+    "fw"    =&gt; fw::run(rest),
+    "wg"    =&gt; wg::run(rest),
+    "httpd" =&gt; httpd::run(rest),
+    "ipkg"  =&gt; ipkg::run(rest),
+    _ =&gt; { usage(); 1 }
+};</code></pre>
+      </div>
+      <p>One module per applet, one <code>run(&amp;[String]) -&gt; i32</code> entry point each. Adding a feature is adding a module and a match arm — no new process, no new binary.</p>
+    </section>
+
+    <!-- Section: init -->
+    <section id="applet-init" class="doc-section">
+      <h2>init — PID 1</h2>
+      <p>The <code>init</code> applet is a real PID 1. It mounts the pseudo-filesystems the rest of the system expects, brings up networking, then supervises the long-lived services and reaps orphaned children.</p>
+      <ul class="styled-list">
+        <li><strong>Mounts</strong> <code>/proc</code>, <code>/sys</code>, <code>/dev</code> (devtmpfs), <code>/tmp</code> — failures surface as clear console errors that map directly to a missing kernel config.</li>
+        <li><strong>Network bring-up</strong> from the config: LAN address, WAN client, default route.</li>
+        <li><strong>Supervision</strong>: restarts the configured services (dns, dhcp, httpd …) if they exit, and reaps zombies via <code>waitpid</code>.</li>
+      </ul>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="init-run">Copy</button>
+        </div>
+        <pre><code id="init-run">lwrt init        # normally invoked by the kernel as /sbin/init</code></pre>
+      </div>
+    </section>
+
+    <!-- Section: net -->
+    <section id="applet-net" class="doc-section">
+      <h2>net / ifup</h2>
+      <p>Interface configuration through ioctl and rtnetlink — assign an address and netmask, optionally install a default route. This is the manual counterpart to what <code>init</code> does automatically from the config.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="net-ifup">Copy</button>
+        </div>
+        <pre><code id="net-ifup">ifup &lt;name&gt; &lt;ip&gt; &lt;netmask&gt; [gateway]
+# e.g.
+ifup br-lan 192.168.1.1 255.255.255.0
+ifup eth0.2 10.0.0.5 255.255.255.0 10.0.0.1</code></pre>
+      </div>
+    </section>
+
+    <!-- Section: dhcp -->
+    <section id="applet-dhcp" class="doc-section">
+      <h2>dhcp</h2>
+      <p>A combined DHCP <strong>server</strong> (for the LAN) and <strong>client</strong> (for the WAN), replacing dnsmasq's DHCP role and OpenWrt's WAN <code>udhcpc</code>. Packets are parsed with a shared, allocation-light option walker that iterates the TLV stream and stops cleanly on truncation — a malformed packet never panics a supervised service.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="dhcp-run">Copy</button>
+        </div>
+        <pre><code id="dhcp-run">dhcp server      # lease out the LAN pool
+dhcp client      # acquire a WAN lease, set address + route</code></pre>
+      </div>
+      <div class="callout callout-info">
+        <strong>Robust by construction.</strong>
+        Option parsing is a single <code>Iterator</code> over the packet body; address fields parse through typed helpers that return <code>Option</code>, so bad input is dropped rather than unwrapped.
+      </div>
+    </section>
+
+    <!-- Section: dns -->
+    <section id="applet-dns" class="doc-section">
+      <h2>dns</h2>
+      <p>A forwarding resolver with a small cache, plus resolution of local DHCP-lease names — dnsmasq's DNS role in miniature. Queries it can't answer locally are forwarded to the configured upstream; answers are cached by TTL.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="dns-run">Copy</button>
+        </div>
+        <pre><code id="dns-run">dns              # bind :53, forward + cache</code></pre>
+      </div>
+    </section>
+
+    <!-- Section: fw -->
+    <section id="applet-fw" class="doc-section">
+      <h2>fw — nftables loader</h2>
+      <p>The firewall applet programs an <strong>nf_tables</strong> ruleset over <code>NETLINK_NETFILTER</code>: a table, base chains hooked into forward/postrouting, and the NAT + filter rules. There is no userspace packet path — the applet just builds the netlink batch and hands it to the kernel's nftables VM.</p>
+      <p>The whole ruleset is encoded into a <strong>single</strong> netlink batch buffer (<code>NFNL_MSG_BATCH_BEGIN</code> … rules … <code>NFNL_MSG_BATCH_END</code>) and sent in one shot; the applet then drains the kernel's ACKs.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="fw-run">Copy</button>
+        </div>
+        <pre><code id="fw-run">fw               # load the NAT + filter ruleset (table "lwrt")</code></pre>
+      </div>
+      <div class="callout callout-warning">
+        <strong>Platform note.</strong>
+        On the QEMU <em>malta</em> XIP target the netfilter stack is omitted from the kernel because the <code>-bios</code> window leaves too little room below the R_MIPS_26 boundary. The real MT7628 flash window has 64&nbsp;MB of headroom and carries the full firewall. See <a href="#porting">Porting</a>.
+      </div>
+    </section>
+
+    <!-- Section: wg -->
+    <section id="applet-wg" class="doc-section">
+      <h2>wg — WireGuard front end</h2>
+      <p>WireGuard embodied: the crypto, the transport and the routing all live in the kernel module; this applet is the thin tool that creates the <code>wg0</code> interface (rtnetlink) and pushes the key, port and peers into it (<code>WG_CMD_SET_DEVICE</code> over genetlink). <strong>No userspace crypto.</strong></p>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <strong>Create the link</strong>
+            <p>rtnetlink <code>RTM_NEWLINK</code> with kind <code>wireguard</code> (EEXIST is treated as success).</p>
+          </div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <strong>Resolve the family</strong>
+            <p>genetlink <code>CTRL_CMD_GETFAMILY</code> to find the WireGuard family id.</p>
+          </div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <strong>Set the device</strong>
+            <p><code>WG_CMD_SET_DEVICE</code>: private key, listen port, and each peer (public key, endpoint, allowed-IPs, keepalive).</p>
+          </div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <strong>Address &amp; up</strong>
+            <p>Assign the tunnel address and bring the interface up.</p>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="wg-run">Copy</button>
+        </div>
+        <pre><code id="wg-run">wg up            # create wg0, push key/port/peers, bring up
+wg down          # tear the link down</code></pre>
+      </div>
+      <p>Because WireGuard uses <em>cryptokey routing</em> — a packet is only accepted if it arrives from the peer whose allowed-IPs cover its source — much of the firewalling a classic VPN needs is subsumed by the tunnel itself, keeping the <code>fw</code> ruleset lean.</p>
+    </section>
+
+    <!-- Section: httpd -->
+    <section id="applet-httpd" class="doc-section">
+      <h2>httpd — admin web UI</h2>
+      <p>A compact embedded web server that serves a single-page admin UI and a small JSON API — the role LuCI + uhttpd play in OpenWrt, in a fraction of the footprint. The UI reads and writes the same INI-style config the rest of LWRT uses.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="httpd-run">Copy</button>
+        </div>
+        <pre><code id="httpd-run">httpd            # serve the admin SPA + JSON API</code></pre>
+      </div>
+      <div class="callout callout-warning">
+        <strong>Hardening in flight.</strong>
+        Authentication, CSRF protection, output escaping and secret redaction are tracked work, not yet complete — do not expose the UI to an untrusted network. See <code>bugs.md</code>.
+      </div>
+    </section>
+
+    <!-- Section: ipkg -->
+    <section id="applet-ipkg" class="doc-section">
+      <h2>ipkg — package manager</h2>
+      <p>A minimal package manager: it fetches an index, lists and installs <code>.ipk</code> archives (ustar payloads) and removes them — opkg's core flow without the C dependency tree.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-target="ipkg-run">Copy</button>
+        </div>
+        <pre><code id="ipkg-run">ipkg update
+ipkg list
+ipkg install &lt;name&gt;
+ipkg remove  &lt;name&gt;</code></pre>
+      </div>
+      <div class="callout callout-info">
+        <strong>Roadmap.</strong>
+        SHA-256 integrity verification, size limits, upgrade and refcount handling are planned (see the parity map and <code>incomplete.md</code>).
+      </div>
+    </section>
+
+    <!-- Section: netlink -->
+    <section id="netlink" class="doc-section">
+      <h2>Internals: the Netlink Builder</h2>
+      <p>Both the firewall (<code>NETLINK_NETFILTER</code> / nf_tables) and WireGuard (<code>NETLINK_GENERIC</code> / genetlink) speak attribute-encoded netlink. LWRT encodes every message through <code>NlBuf</code> — a single growable buffer that appends each header and attribute <em>in place</em> and backpatches the length fields of nested attributes and messages when their scope closes.</p>
+      <p>The naive approach — returning a fresh <code>Vec&lt;u8&gt;</code> per attribute and <code>extend</code>-ing them together — allocates dozens of short-lived buffers to emit one ruleset. <code>NlBuf</code> allocates once and grows.</p>
+
+      <h3>Scopes that can't be left open</h3>
+      <p>A nested attribute or a message is opened with a <code>begin_*</code> call that returns a <code>Scope</code> marker and writes a placeholder length; the matching <code>end_*</code> backpatches the real length. The marker is <code>#[must_use]</code>, so forgetting to close a scope (which would leave a zero length on the wire) is a compile-time warning.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">rust</span>
+          <button class="copy-btn" data-target="nl-builder">Copy</button>
+        </div>
+        <pre><code id="nl-builder">let mut b = NlBuf::new();
+let m = b.begin_message(family, NLM_F_REQUEST | NLM_F_ACK, 1);
+genlmsghdr(&amp;mut b, WG_CMD_SET_DEVICE, 1);
+b.attr_str(WGDEVICE_A_IFNAME, ifname);
+b.attr_u32_le(WGDEVICE_A_FLAGS, WGDEVICE_F_REPLACE_PEERS);
+b.attr(WGDEVICE_A_PRIVATE_KEY, privk);
+b.attr_u16_ne(WGDEVICE_A_LISTEN_PORT, port);
+
+let peers = b.begin_nested(WGDEVICE_A_PEERS);   // Scope (must be closed)
+let peer  = b.begin_nested(peer_idx);
+b.attr(WGPEER_A_PUBLIC_KEY, &amp;pubk);
+b.end_nested(peer);
+b.end_nested(peers);
+b.end_message(m);
+
+nl::send(fd, b.as_slice())?;</code></pre>
+      </div>
+
+      <h3>Wire format reference</h3>
+      <table>
+        <thead>
+          <tr><th>Element</th><th>Encoding</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Attribute</td><td><code>[len u16 le = 4+payload][type u16 le][payload][pad to 4]</code> — <code>len</code> excludes the pad.</td></tr>
+          <tr><td>Nested attr</td><td>An attribute whose type carries the <code>NLA_F_NESTED</code> (<code>0x8000</code>) flag; its payload is a sub-stream of attributes.</td></tr>
+          <tr><td>Message</td><td><code>[nlmsg_len u32 le = 16+body][type u16][flags u16][seq u32][pid u32 = 0][body][pad to 4]</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info">
+        <strong>Verified by tests.</strong>
+        Unit tests assert 4-byte alignment, correct length fields, the nested flag, and that <code>for_each_attr</code> reads back exactly what was written — so the builder is byte-identical to the hand-rolled encoding it replaced.
+      </div>
+    </section>
+
+    <!-- Section: config -->
+    <section id="config" class="doc-section">
+      <h2>Configuration</h2>
+      <p>LWRT reads one INI-style file — <code>/etc/lwrt/config</code> — with <code>[section]</code> headers and <code>key = value</code> lines. Every applet pulls its settings from the same parsed map; there is no UCI, no per-daemon format.</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">ini</span>
+          <button class="copy-btn" data-target="cfg-example">Copy</button>
+        </div>
+        <pre><code id="cfg-example">[lan]
+ifname = br-lan
+address = 192.168.1.1
+netmask = 255.255.255.0
+
+[wan]
+ifname = eth0.2
+proto = dhcp
+
+[wireguard]
+enabled = 1
+private_key = &lt;base64 32-byte key&gt;
+listen_port = 51820
+address = 10.0.0.1/24
+
+[peer0]
+public_key = &lt;base64 32-byte key&gt;
+endpoint = 203.0.113.7:51820
+allowed_ips = 10.0.0.2/32, 10.0.0.0/24
+keepalive = 25</code></pre>
+      </div>
+      <p>Any section whose name begins with <code>peer</code> and carries a valid <code>public_key</code> becomes a WireGuard peer. Missing or malformed values are skipped gracefully rather than aborting the applet.</p>
+    </section>
+
+    <!-- Section: parity -->
+    <section id="parity" class="doc-section">
+      <h2>OpenWrt → LWRT Parity Map</h2>
+      <p>What each OpenWrt component maps to in LWRT, and how complete the replacement is today.</p>
+      <table>
+        <thead>
+          <tr><th>OpenWrt</th><th>LWRT applet</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>procd</td><td><code>init</code></td><td>done — PID 1, mounts, supervise, reap</td></tr>
+          <tr><td>netifd</td><td><code>ifup</code> / init</td><td>done — addresses + routes via ioctl/rtnetlink</td></tr>
+          <tr><td>dnsmasq (DHCP)</td><td><code>dhcp</code></td><td>done — LAN server + WAN client</td></tr>
+          <tr><td>dnsmasq (DNS)</td><td><code>dns</code></td><td>done — forwarder + cache</td></tr>
+          <tr><td>fw4 / nftables</td><td><code>fw</code></td><td>done — NAT + filter loader</td></tr>
+          <tr><td>wireguard-tools</td><td><code>wg</code></td><td>done — link + peers via rtnetlink/genetlink</td></tr>
+          <tr><td>opkg</td><td><code>ipkg</code></td><td>minimal — ustar <code>.ipk</code> install/remove</td></tr>
+          <tr><td>uhttpd + LuCI</td><td><code>httpd</code></td><td>done — embedded SPA + JSON API</td></tr>
+          <tr><td>ubus</td><td><code>ubus</code></td><td>planned</td></tr>
+          <tr><td>dropbear</td><td><code>sshd</code></td><td>planned</td></tr>
+          <tr><td>wpad / hostapd</td><td><code>wifi</code></td><td>planned</td></tr>
+          <tr><td>sysntpd</td><td><code>ntp</code></td><td>done — SNTP client, sets the clock</td></tr>
+          <tr><td>logd / syslog</td><td><code>log</code></td><td>done — <code>/dev/log</code> + <code>/dev/kmsg</code> syslogd</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Section: building -->
+    <section id="building" class="doc-section">
+      <h2>Building</h2>
+      <p>LWRT targets the tier-3 <code>mipsel-unknown-linux-musl</code> triple, built with nightly and <code>-Zbuild-std</code>, optimised hard for size.</p>
+      <table>
+        <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>target</td><td><code>mipsel-unknown-linux-musl</code></td><td>MT7628 is little-endian MIPS; musl for a fully static binary</td></tr>
+          <tr><td>panic</td><td><code>abort</code></td><td>no unwinder, smaller binary</td></tr>
+          <tr><td>opt-level</td><td><code>z</code></td><td>optimise for size, not speed</td></tr>
+          <tr><td>lto / codegen-units</td><td><code>true</code> / <code>1</code></td><td>cross-module inlining + dead-code elimination</td></tr>
+          <tr><td>strip</td><td><code>true</code></td><td>drop symbols from the shipped binary</td></tr>
+          <tr><td>build-std</td><td><code>std, panic_abort</code></td><td>rebuild std for the tier-3 target</td></tr>
+        </tbody>
+      </table>
+      <p>The final link is driven by the OpenWrt musl gcc (the tier-3 target ships no self-contained CRT), with <code>vendor/libunwind.a</code> as a copy of <code>libgcc_eh.a</code>. <code>scripts/build.sh</code> wires all of this through the environment so <code>.cargo/config.toml</code> stays machine-neutral.</p>
+    </section>
+
+    <!-- Section: porting -->
+    <section id="porting" class="doc-section">
+      <h2>Porting to Another Router</h2>
+      <p>LWRT itself is board-agnostic — it talks to the kernel through standard ioctls and netlink. Porting is really <em>kernel</em> porting.</p>
+      <ol class="numbered-list">
+        <li><strong>Pick the flash XIP window.</strong> Set <code>CONFIG_XIP_PHYS_ADDR</code> to the SoC's memory-mapped SPI/NOR flash base. On MT7628 that is <code>0x1c000000</code> (KSEG0 <code>0x9c000000</code>).</li>
+        <li><strong>Mind the R_MIPS_26 boundary.</strong> MIPS <code>jal</code> can only jump within a 256&nbsp;MB-aligned segment. Keep the kernel's flash-resident text below the next <code>0x_0000000</code> boundary above the window. The malta <code>-bios</code> window at <code>0x1fc01000</code> leaves only ~4&nbsp;MB before <code>0xa0000000</code> — which is why the malta defconfig omits the netfilter stack; the MT7628 window at <code>0x9c000000</code> has 64&nbsp;MB of headroom and fits the full firewall.</li>
+        <li><strong>Write a defconfig</strong> for the board (NIC driver, DSA/switch, WiFi) modelled on <code>configs/lwrt_qemu_malta_defconfig</code>.</li>
+        <li><strong>Adjust <code>rootfs/etc/lwrt/config</code></strong> — interface names (<code>lan.ifname</code>, <code>wan.ifname</code>), addresses, radios.</li>
+      </ol>
+      <div class="callout callout-warning">
+        <strong>Two malta ceilings.</strong>
+        The malta <code>-bios</code> path both limits usable flash text to ~4&nbsp;MB and byteswaps only the first ~3.9&nbsp;MB of the image on mipsel. Netfilter and bridge support are therefore deferred to the MT7628 target, which has neither limitation.
+      </div>
+    </section>
+
+    <!-- Section: debugging -->
+    <section id="debugging" class="doc-section">
+      <h2>Debugging on Real Hardware</h2>
+      <ul class="styled-list">
+        <li><strong>Serial console early.</strong> Keep <code>earlycon=ttyS0</code> (or the board's UART) on the kernel command line. Rust init's kernel-ABI mismatches then surface as syscall errors before anything else is up — e.g. <code>mount /proc: No such device</code> means <code>CONFIG_PROC_FS</code> is off; <code>Function not implemented</code> means a kernel subsystem is missing.</li>
+        <li><strong>Netlink, not strace.</strong> There is no strace on the device. To debug firewall application, read the kernel's netlink/netfilter logs — the <code>fw</code> applet programs nftables over <code>NETLINK_NETFILTER</code> and the kernel reports rejections.</li>
+        <li><strong>Binary integrity.</strong> Make sure the musl the toolchain links against is compatible with the kernel you boot; a mismatch shows up as <code>ENOSYS</code>/<code>EINVAL</code> from otherwise-correct code.</li>
+      </ul>
+    </section>
+
+    <!-- Section: glossary -->
+    <section id="glossary" class="doc-section">
+      <h2>Glossary</h2>
+      <dl class="glossary">
+        <dt>XIP (Execute-In-Place)</dt>
+        <dd>Running kernel code directly from flash without copying it to RAM — possible on MIPS because KSEG0/KSEG1 are unmapped segments.</dd>
+        <dt>Multicall binary</dt>
+        <dd>A single executable that behaves as many tools, selected by the name it is invoked under (busybox-style).</dd>
+        <dt>netlink</dt>
+        <dd>The kernel↔userspace socket protocol used to configure networking, netfilter and WireGuard. Messages are streams of type-length-value attributes.</dd>
+        <dt>genetlink</dt>
+        <dd>Generic netlink — a multiplexing layer over netlink; WireGuard registers a family resolved at runtime by name.</dd>
+        <dt>nf_tables</dt>
+        <dd>The kernel's in-kernel packet-classification VM that replaced iptables; LWRT's <code>fw</code> applet compiles a ruleset into nftables netlink batches.</dd>
+        <dt>cryptokey routing</dt>
+        <dd>WireGuard's model where a peer's allowed-IPs both select the encryption key for outbound packets and authorise inbound source addresses.</dd>
+        <dt>R_MIPS_26</dt>
+        <dd>The MIPS relocation for the <code>jal</code> instruction, which can only target an address within the same 256&nbsp;MB-aligned region — a hard ceiling on flash-resident kernel text.</dd>
+      </dl>
+    </section>
+
+    <!-- Section: FAQ -->
+    <section id="faq" class="doc-section">
+      <h2>FAQ</h2>
+      <div class="faq-list">
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Is LWRT a fork of OpenWrt?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>No. LWRT shares OpenWrt's goal (a capable router on cheap hardware) but reimplements the userspace from scratch in Rust as one binary. It relies on the same mainline kernel subsystems OpenWrt does — nftables, WireGuard, the bridge/DSA datapath, mt76 — but ships none of OpenWrt's C daemons.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Why one binary instead of separate programs?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>On a 4&nbsp;MB flash, every separate executable pays for its own ELF overhead and its slice of shared libraries. A single statically-linked multicall binary shares all its code and links once against musl — the whole userspace is around 0.6&nbsp;MB.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Does LWRT implement any cryptography itself?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>No. WireGuard's crypto, transport and routing live entirely in the kernel module. The <code>wg</code> applet only creates the interface and pushes keys, the listen port and peers in over genetlink. Keeping crypto in the kernel is both smaller and safer.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Why is the firewall missing on the QEMU malta build?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>The malta <code>-bios</code> XIP window leaves under ~4&nbsp;MB of flash text below the R_MIPS_26 jump boundary, and QEMU only byteswaps the first ~3.9&nbsp;MB on mipsel. The netfilter and bridge code does not fit there, so it is deferred to the MT7628 target, whose flash window has 64&nbsp;MB of headroom.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Can I run LWRT on a board other than the Archer C54?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Yes — the userspace is board-agnostic. Porting is mostly kernel work: choose the flash XIP window, respect the R_MIPS_26 boundary, write a board defconfig, and adjust interface names in <code>/etc/lwrt/config</code>. See the <a href="#porting">Porting</a> section.</p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-question" aria-expanded="false">
+            <span>Is LWRT production-ready?</span>
+            <span class="faq-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p>Not yet. The userspace cross-compiles and boots as PID 1 in QEMU, but several areas — httpd authentication/CSRF, ipkg integrity, firewall zone modelling — are still being hardened. The repository's <code>incomplete.md</code> and <code>bugs.md</code> track the honest gaps.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="doc-footer">
+      <div class="footer-content">
+        <p>LWRT — Lightweight Wireless Router · Rust · mipsel-musl · GPL-2.0-or-later</p>
+        <p>One static binary is the entire router userspace · runs on an XIP Linux kernel</p>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Back to Top -->
+  <button id="backToTop" class="back-to-top" aria-label="Back to top">↑</button>
+
+  <script src="script.js"></script>
+</body>
+</html>

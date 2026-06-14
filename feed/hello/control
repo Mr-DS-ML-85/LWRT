@@ -1,0 +1,6 @@
+Package: hello
+Version: 1.0
+Architecture: mipsel_24kc
+Maintainer: Irfan Mahir
+Section: utils
+Description: Minimal example LWRT package — prints a greeting.

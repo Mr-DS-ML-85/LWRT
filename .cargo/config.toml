@@ -1,0 +1,29 @@
+# LWRT cross-build config — portable, no machine-specific absolute paths.
+#
+# The MIPS target (MT7628 24KEc, little-endian) is a Rust tier-3 target, so std
+# is built from source (-Zbuild-std). It ships no self-contained musl CRT, so a
+# musl gcc must drive the link. That toolchain lives on YOUR machine, so its
+# path is supplied at build time via environment variables instead of being
+# baked in here. Use `scripts/build.sh`, which sets them for you:
+#
+#   CARGO_TARGET_MIPSEL_UNKNOWN_LINUX_MUSL_LINKER  -> musl gcc wrapper
+#   STAGING_DIR                                    -> OpenWrt staging_dir
+#
+# Override the target by exporting LWRT_TARGET before scripts/build.sh.
+
+[build]
+target = "mipsel-unknown-linux-musl"
+
+[unstable]
+build-std = ["std", "panic_abort"]
+
+# The mips32r2 baseline already matches the 24KEc core — no -mcpu override.
+# `-L vendor` (relative to the project root) provides libunwind.a, satisfying
+# the `-lunwind` the tier-3 target spec emits even though panic=abort makes
+# unwinding dead code. scripts/build.sh regenerates it if missing.
+[target.mipsel-unknown-linux-musl]
+rustflags = [
+    "-C", "target-feature=+crt-static",
+    "-C", "link-self-contained=no",
+    "-L", "vendor",
+]

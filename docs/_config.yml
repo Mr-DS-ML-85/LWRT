@@ -1,0 +1,21 @@
+# Jekyll configuration for GitHub Pages
+# This is a static site, but GitHub Pages may process it through Jekyll.
+# We use .nojekyll to bypass Jekyll processing since this is pure HTML/CSS/JS.
+
+title: "LWRT Documentation"
+description: "OpenWrt's userspace as one compact static Rust binary, riding an XIP Linux kernel"
+baseurl: ""
+url: ""
+
+# Build settings
+markdown: kramdown
+plugins: []
+
+# Exclude files from processing
+exclude:
+  - "*.py"
+  - "*.sh"
+  - "*.patch"
+  - Makefile
+  - README.md
+  - LICENSE

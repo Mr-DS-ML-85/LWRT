@@ -1,0 +1,21 @@
+[package]
+name = "lwrt"
+version = "0.2.0"
+edition = "2021"
+description = "LWRT — a Lightweight Wireless Router OS: OpenWrt's userspace reimagined as one compact static Rust binary"
+license = "GPL-2.0-or-later"
+repository = "https://github.com/Mr-DS-ML-85/lwrt"
+
+[[bin]]
+name = "lwrt"
+path = "src/main.rs"
+
+[dependencies]
+libc = { version = "0.2", default-features = false }
+
+[profile.release]
+panic = "abort"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

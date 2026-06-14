@@ -1,0 +1,11 @@
+Package: hello
+Version: 1.0
+Architecture: mipsel_24kc
+Maintainer: Irfan Mahir
+Section: utils
+Description: Minimal example LWRT package — prints a greeting.
+
+Filename: hello_1.0_mipsel_24kc.ipk
+Size: 10240
+SHA256sum: 5283b2b98955dfab04c2f2b4a0da8045b6ff17e2e6151486c77f04d7a123bcc9
+
