@@ -171,6 +171,20 @@ and netlink. Porting is really *kernel* porting:
 
 ---
 
+# Disclaimer
+
+This project is an experimental research prototype and is currently in an early development stage.
+
+It has **not been tested on real hardware** and is primarily developed and validated using emulation (QEMU). As such, behavior on physical devices may differ significantly or fail entirely.
+
+The system is **incomplete, unstable, and contains known and unknown bugs**. Many components are still under active development, and interfaces, architecture, and functionality may change without notice.
+
+This project is provided for **educational and research purposes only**. It is not intended for production use, deployment in critical systems, or any environment where reliability is required.
+
+Use at your own risk.
+
+
+
 ## License
 
 GPL-2.0-or-later. See [`LICENSE`](LICENSE).
