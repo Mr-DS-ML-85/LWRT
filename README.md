@@ -14,8 +14,8 @@ the package manager, and the admin web UI, dispatched busybox-style on the
 applet name.
 
 > Status: early but real. The userspace cross-compiles and the XIP kernel
-> boots it as PID 1 in QEMU. See [`incomplete.md`](incomplete.md) and
-> [`bugs.md`](bugs.md) for the honest list of gaps and hardening still in
+> boots it as PID 1 in QEMU. See [`incomplete.md`](old_bugs/incomplete.md) and
+> [`bugs.md`](old_bugs/bugs.md) for the honest list of gaps and hardening still in
 > flight.
 
 📖 **Documentation:** a full guide — architecture, every applet, the netlink
